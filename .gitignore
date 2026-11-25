@@ -1,0 +1,14 @@
+# .NET
+api/bin/
+api/obj/
+*.user
+.vs/
+
+# React
+web/node_modules/
+web/dist/
+
+# Never commit secrets
+appsettings.Development.json
+*.env
+.env*
