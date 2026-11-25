@@ -34,6 +34,7 @@ DECLARE @S101 int = (SELECT RoomID FROM dbo.Rooms WHERE RoomName = 'S-101');
 DECLARE @S102 int = (SELECT RoomID FROM dbo.Rooms WHERE RoomName = 'S-102');
 DECLARE @S103 int = (SELECT RoomID FROM dbo.Rooms WHERE RoomName = 'S-103');
 DECLARE @S104 int = (SELECT RoomID FROM dbo.Rooms WHERE RoomName = 'S-104');
+DECLARE @S110 int = (SELECT RoomID FROM dbo.Rooms WHERE RoomName = 'S-110');
 DECLARE @Lab1 int = (SELECT RoomID FROM dbo.Rooms WHERE RoomName = 'LAB-1');
 DECLARE @Projector int = (SELECT EquipmentID FROM dbo.Equipment WHERE Name = 'Projector');
 -- How many projectors exist (3 at the start, more if an admin added some)
@@ -88,14 +89,14 @@ BEGIN CATCH PRINT 'FAIL: faculty could not book a lab: ' + ERROR_MESSAGE(); END 
 PRINT '--- Rule 3: max 3 upcoming bookings per student ---';
 BEGIN TRY
     EXEC dbo.sp_CreateBooking @UserID = @Karl, @RoomID = @S101, @Start = @At0800, @End = @At0900, @People = 2;
-    EXEC dbo.sp_CreateBooking @UserID = @Karl, @RoomID = @S102, @Start = @At0800, @End = @At0900, @People = 2;
-    EXEC dbo.sp_CreateBooking @UserID = @Karl, @RoomID = @S103, @Start = @At0800, @End = @At0900, @People = 2;
+    EXEC dbo.sp_CreateBooking @UserID = @Karl, @RoomID = @S102, @Start = @At0900, @End = @At1000, @People = 2;
+    EXEC dbo.sp_CreateBooking @UserID = @Karl, @RoomID = @S103, @Start = @At1000, @End = @At1100, @People = 2;
     PRINT 'PASS: 3 bookings accepted';
 END TRY
 BEGIN CATCH PRINT 'FAIL: ' + ERROR_MESSAGE(); END CATCH;
 
 BEGIN TRY
-    EXEC dbo.sp_CreateBooking @UserID = @Karl, @RoomID = @S104, @Start = @At0800, @End = @At0900, @People = 2;
+    EXEC dbo.sp_CreateBooking @UserID = @Karl, @RoomID = @S104, @Start = @At1200, @End = @At1300, @People = 2;
     PRINT 'FAIL: a 4th booking was accepted';
 END TRY
 BEGIN CATCH PRINT 'PASS (refused): ' + ERROR_MESSAGE(); END CATCH;
@@ -115,6 +116,13 @@ BEGIN TRY  -- Sara tries 11:00 - 12:00: right after, no overlap
     PRINT 'PASS: a back-to-back booking was accepted';
 END TRY
 BEGIN CATCH PRINT 'FAIL: ' + ERROR_MESSAGE(); END CATCH;
+
+PRINT '--- Rule 9: a user cannot have two bookings at the same time ---';
+BEGIN TRY  -- Sara has S-104 from 11:00 to 12:00; she tries S-110 from 11:30
+    EXEC dbo.sp_CreateBooking @UserID = @Sara, @RoomID = @S110, @Start = @At1130, @End = @At1200, @People = 2;
+    PRINT 'FAIL: two bookings at the same time were accepted';
+END TRY
+BEGIN CATCH PRINT 'PASS (refused): ' + ERROR_MESSAGE(); END CATCH;
 
 PRINT CONCAT('--- Rule 7: never lend more units than we have (', @ProjectorUnits, ' projectors) ---');
 BEGIN TRY  -- Bruno takes ALL the projectors
@@ -176,8 +184,8 @@ END TRY
 BEGIN CATCH PRINT 'PASS (refused): ' + ERROR_MESSAGE(); END CATCH;
 
 PRINT '--- Rule 3: cancelled bookings are not counted ---';
--- Karl has 3 upcoming bookings (S-101, S-102, S-103 at 08:00). He cancels one...
-SELECT @Id = BookingID FROM dbo.Bookings WHERE UserID = @Karl AND RoomID = @S103 AND StartTime = @At0800;
+-- Karl has 3 upcoming bookings (S-101 08:00, S-102 09:00, S-103 10:00). He cancels one...
+SELECT @Id = BookingID FROM dbo.Bookings WHERE UserID = @Karl AND RoomID = @S103 AND StartTime = @At1000;
 EXEC dbo.sp_CancelBooking @BookingID = @Id, @ActingUserID = @Karl;
 BEGIN TRY  -- ...so he can book again
     EXEC dbo.sp_CreateBooking @UserID = @Karl, @RoomID = @S103, @Start = @At1300, @End = @At1400, @People = 2;

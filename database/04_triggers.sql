@@ -4,7 +4,7 @@
 USE BookingDb;
 GO
 
--- Runs after every new booking. Checks rules 3, 4 and 5.
+-- Runs after every new booking. Checks rules 3, 4, 5 and 9.
 -- If one is broken, THROW cancels the insert (and the whole transaction).
 CREATE OR ALTER TRIGGER dbo.trg_Bookings_CheckRules
 ON dbo.Bookings
@@ -43,6 +43,19 @@ BEGIN
                         AND b.Status = 'Active'
                         AND b.StartTime > SYSDATETIME()) > 3)
         THROW 50003, 'Students can have at most 3 upcoming bookings.', 1;
+
+    -- Rule 9: a user cannot have two active bookings at the same time.
+    -- Two time ranges overlap when each one starts before the other ends.
+    -- Safe at the same second too: sp_CreateBooking locks the user's row first.
+    IF EXISTS (SELECT 1
+               FROM inserted AS i
+               JOIN dbo.Bookings AS b
+                 ON b.UserID = i.UserID
+                AND b.BookingID <> i.BookingID
+                AND b.Status = 'Active'
+                AND b.StartTime < i.EndTime
+                AND b.EndTime > i.StartTime)
+        THROW 50014, 'You already have a booking at that time.', 1;
 END;
 GO
 
